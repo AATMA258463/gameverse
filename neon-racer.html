@@ -1,0 +1,98 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GAMEVERSE | Neon Racer</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080b18;color:#f4f6ff;font-family:Arial,sans-serif;text-align:center}
+h1{color:#55e7ff;margin:18px 0 6px}
+p{color:#c5cbea}
+canvas{display:block;width:min(94vw,360px);height:auto;margin:14px auto;border:2px solid #55e7ff;border-radius:10px;background:#10162b}
+button{background:linear-gradient(90deg,#55e7ff,#a78bfa);color:#080b18;border:0;border-radius:9px;padding:12px 18px;margin:5px;font-size:16px;font-weight:bold;cursor:pointer}
+a{color:#55e7ff}
+.controls{margin:8px}
+</style>
+</head>
+<body>
+<h1>🏎️ NEON RACER</h1>
+<p>Use arrow keys or buttons to dodge the traffic!</p>
+<canvas id="game" width="360" height="540"></canvas>
+<h2 id="score">Score: 0</h2>
+<button onclick="startGame()">Start / Restart</button>
+<div class="controls">
+<button onclick="move(-1)">⬅ LEFT</button>
+<button onclick="move(1)">RIGHT ➡</button>
+</div>
+<p><a href="index.html">← Back to GAMEVERSE</a></p>
+<script>
+const c=document.getElementById('game');
+const ctx=c.getContext('2d');
+let player,traffic,score,frame,running,over;
+function reset(){
+ player={x:158,y:445,w:44,h:70};
+ traffic=[];score=0;frame=0;running=true;over=false;
+ document.getElementById('score').textContent='Score: 0';
+}
+function move(dir){
+ if(!player||over)return;
+ player.x=Math.max(48,Math.min(268,player.x+dir*28));
+}
+document.addEventListener('keydown',e=>{
+ if(e.key==='ArrowLeft'||e.key.toLowerCase()==='a'){e.preventDefault();move(-1)}
+ if(e.key==='ArrowRight'||e.key.toLowerCase()==='d'){e.preventDefault();move(1)}
+ if(e.key===' '&&!running)startGame();
+});
+function drawCar(x,y,color){
+ ctx.fillStyle=color;
+ ctx.fillRect(x+5,y,34,65);
+ ctx.fillStyle='#10162b';
+ ctx.fillRect(x,y+12,8,18);ctx.fillRect(x+36,y+12,8,18);
+ ctx.fillRect(x,y+42,8,18);ctx.fillRect(x+36,y+42,8,18);
+ ctx.fillStyle='#dffaff';
+ ctx.fillRect(x+10,y+8,24,12);
+ ctx.fillStyle='#ff315f';
+ ctx.fillRect(x+9,y+52,8,5);ctx.fillRect(x+27,y+52,8,5);
+}
+function draw(){
+ ctx.clearRect(0,0,360,540);
+ ctx.fillStyle='#151b31';ctx.fillRect(38,0,284,540);
+ ctx.fillStyle='#55e7ff';
+ ctx.fillRect(34,0,4,540);ctx.fillRect(322,0,4,540);
+ ctx.fillStyle='#7770a8';
+ for(let y=(frame*5)%60-60;y<540;y+=60){
+ ctx.fillRect(108,y,4,30);ctx.fillRect(248,y,4,30);
+ }
+ if(player)drawCar(player.x,player.y,'#55e7ff');
+ traffic.forEach(t=>drawCar(t.x,t.y,'#ff315f'));
+ if(!running){
+ ctx.fillStyle='rgba(8,11,24,.85)';ctx.fillRect(38,190,284,125);
+ ctx.fillStyle='#55e7ff';ctx.font='bold 25px Arial';ctx.textAlign='center';
+ ctx.fillText(over?'GAME OVER':'NEON RACER',180,235);
+ ctx.fillStyle='white';ctx.font='16px Arial';
+ ctx.fillText(over?'Press Start to try again':'Press Start to play',180,270);
+ }
+}
+function loop(){
+ if(!running){draw();return}
+ frame++;
+ if(frame%48===0)traffic.push({x:58+Math.floor(Math.random()*3)*84,y:-75,w:44,h:65});
+ traffic.forEach(t=>t.y+=4+Math.min(score/150,4));
+ traffic=traffic.filter(t=>t.y<560);
+ for(const t of traffic){
+ if(player.x<t.x+44&&player.x+44>t.x&&player.y<t.y+65&&player.y+70>t.y){
+ running=false;over=true;
+ }
+ }
+ if(frame%10===0)score++;
+ document.getElementById('score').textContent='Score: '+score;
+ draw();
+ if(running)requestAnimationFrame(loop);
+}
+function startGame(){reset();draw();requestAnimationFrame(loop)}
+reset();running=false;draw();
+</script>
+</body>
+</html>
