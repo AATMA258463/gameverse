@@ -1,0 +1,199 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPACE DODGE | GAMEVERSE</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#050816;color:#f4f6ff;font-family:Arial,sans-serif;text-align:center}
+header{padding:18px;background:#0d1224;border-bottom:1px solid #55e7ff66}
+h1{margin:0;color:#55e7ff;text-shadow:0 0 15px #55e7ff}
+p{color:#b9c4df}
+canvas{display:block;width:min(94vw,400px);height:auto;margin:15px auto;background:#080b20;border:2px solid #55e7ff;border-radius:12px;box-shadow:0 0 20px #55e7ff33}
+button{padding:12px 20px;margin:5px;border:0;border-radius:8px;background:linear-gradient(90deg,#55e7ff,#a78bfa);font-weight:bold;font-size:15px;cursor:pointer}
+#score{color:#55e7ff;font-size:22px;font-weight:bold}
+a{color:#55e7ff}
+</style>
+</head>
+<body>
+<header>
+<h1>🚀 SPACE DODGE</h1>
+<p>GAMEVERSE Gaming Hub</p>
+</header>
+
+<p>Score: <span id="score">0</span></p>
+<canvas id="game" width="400" height="560"></canvas>
+<div>
+<button id="start">START GAME</button>
+<button id="left">◀ LEFT</button>
+<button id="right">RIGHT ▶</button>
+</div>
+<p>Use ← → or A / D keys to dodge the meteors!</p>
+<p><a href="index.html">← Back to GAMEVERSE</a></p>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const scoreEl=document.getElementById("score");
+const startBtn=document.getElementById("start");
+
+let ship,rocks,stars,score,running,over,lastTime,spawnTimer;
+let keys={};
+let best=0;
+
+function reset(){
+ ship={x:180,y:470,w:40,h:40,speed:5};
+ rocks=[];
+ stars=Array.from({length:75},()=>({
+  x:Math.random()*400,y:Math.random()*560,
+  size:Math.random()*2+0.5,speed:Math.random()*2+0.5
+ }));
+ score=0;spawnTimer=0;lastTime=0;
+ scoreEl.textContent="0";
+ running=true;over=false;
+ startBtn.textContent="RESTART";
+}
+
+function drawShip(){
+ ctx.save();
+ ctx.translate(ship.x+20,ship.y+20);
+ ctx.shadowColor="#55e7ff";ctx.shadowBlur=18;
+ ctx.fillStyle="#55e7ff";
+ ctx.beginPath();ctx.moveTo(0,-22);
+ ctx.lineTo(17,17);ctx.lineTo(0,9);ctx.lineTo(-17,17);
+ ctx.closePath();ctx.fill();
+ ctx.fillStyle="#fff";
+ ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle="#a78bfa";
+ ctx.fillRect(-8,17,5,9);ctx.fillRect(3,17,5,9);
+ ctx.restore();
+}
+
+function drawRock(r){
+ ctx.save();
+ ctx.shadowColor="#ff4d8d";ctx.shadowBlur=12;
+ ctx.fillStyle="#ff4d8d";
+ ctx.beginPath();
+ for(let i=0;i<8;i++){
+  let a=i*Math.PI/4;
+  let radius=r.r*(i%2===0?1:0.72);
+  let x=r.x+Math.cos(a)*radius;
+  let y=r.y+Math.sin(a)*radius;
+  if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+ }
+ ctx.closePath();ctx.fill();
+ ctx.restore();
+}
+
+function drawBackground(){
+ ctx.fillStyle="#080b20";ctx.fillRect(0,0,400,560);
+ ctx.fillStyle="#fff";
+ stars.forEach(s=>{
+  ctx.globalAlpha=0.4+Math.random()*0.6;
+  ctx.fillRect(s.x,s.y,s.size,s.size);
+  s.y+=s.speed;
+  if(s.y>560){s.y=0;s.x=Math.random()*400}
+ });
+ ctx.globalAlpha=1;
+}
+
+function endGame(){
+ running=false;over=true;
+ startBtn.textContent="PLAY AGAIN";
+ ctx.fillStyle="rgba(4,7,22,0.78)";
+ ctx.fillRect(0,0,400,560);
+ ctx.textAlign="center";
+ ctx.shadowColor="#ff4d8d";ctx.shadowBlur=15;
+ ctx.fillStyle="#ff4d8d";ctx.font="bold 38px Arial";
+ ctx.fillText("GAME OVER",200,245);
+ ctx.shadowBlur=0;
+ ctx.fillStyle="#fff";ctx.font="22px Arial";
+ ctx.fillText("Score: "+Math.floor(score),200,290);
+ ctx.font="16px Arial";ctx.fillText("Press PLAY AGAIN",200,330);
+}
+
+function update(dt){
+ const step=dt/16.67;
+ if(keys.ArrowLeft||keys.a||keys.A)ship.x-=ship.speed*step;
+ if(keys.ArrowRight||keys.d||keys.D)ship.x+=ship.speed*step;
+ ship.x=Math.max(0,Math.min(400-ship.w,ship.x));
+
+ stars.forEach(s=>s.y+=s.speed*step);
+ stars.forEach(s=>{if(s.y>560){s.y=0;s.x=Math.random()*400}});
+
+ score+=step*0.12;
+ spawnTimer+=dt;
+ if(spawnTimer>Math.max(260,720-score*2)){
+  rocks.push({
+   x:15+Math.random()*370,y:-25,
+   r:12+Math.random()*10,
+   speed:2.3+Math.min(score/180,4)
+  });
+  spawnTimer=0;
+ }
+
+ rocks.forEach(r=>r.y+=r.speed*step);
+ rocks=rocks.filter(r=>r.y<590);
+
+ for(const r of rocks){
+  const cx=Math.max(ship.x,Math.min(r.x,ship.x+ship.w));
+  const cy=Math.max(ship.y,Math.min(r.y,ship.y+ship.h));
+  if(Math.hypot(r.x-cx,r.y-cy)<r.r+3){
+   endGame();return;
+  }
+ }
+ scoreEl.textContent=Math.floor(score);
+}
+
+function draw(){
+ drawBackground();
+ rocks.forEach(drawRock);
+ if(ship)drawShip();
+}
+
+function loop(time){
+ if(!running)return;
+ const dt=Math.min(time-(lastTime||time),35);
+ lastTime=time;
+ update(dt);
+ draw();
+ if(running)requestAnimationFrame(loop);
+}
+
+startBtn.addEventListener("click",()=>{
+ reset();draw();requestAnimationFrame(loop);
+});
+
+document.addEventListener("keydown",e=>{
+ if(["ArrowLeft","ArrowRight"," "].includes(e.key))e.preventDefault();
+ keys[e.key]=true;
+});
+document.addEventListener("keyup",e=>keys[e.key]=false);
+
+function holdButton(id,key){
+ const b=document.getElementById(id);
+ const down=e=>{e.preventDefault();keys[key]=true};
+ const up=e=>{e.preventDefault();keys[key]=false};
+ b.addEventListener("pointerdown",down);
+ b.addEventListener("pointerup",up);
+ b.addEventListener("pointerleave",up);
+ b.addEventListener("pointercancel",up);
+}
+holdButton("left","ArrowLeft");
+holdButton("right","ArrowRight");
+
+ship={x:180,y:470,w:40,h:40};
+rocks=[];
+stars=Array.from({length:75},()=>({
+ x:Math.random()*400,y:Math.random()*560,
+ size:Math.random()*2+0.5,speed:Math.random()*2+0.5
+}));
+draw();
+ctx.fillStyle="#fff";ctx.textAlign="center";
+ctx.font="bold 23px Arial";ctx.fillText("READY FOR SPACE?",200,245);
+ctx.font="16px Arial";ctx.fillText("Press START GAME",200,280);
+</script>
+</body>
+</html>
