@@ -1,0 +1,224 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GAMEVERSE | Neon 2048</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;padding:18px 10px;background:#080b18;color:#f4f6ff;
+ font-family:Arial,sans-serif;text-align:center
+}
+h1{color:#55e7ff;text-shadow:0 0 15px #55e7ff;margin:10px}
+p{color:#c8cbea}
+.panel{max-width:430px;margin:12px auto}
+button{
+ border:1px solid #55e7ff;border-radius:9px;padding:11px 14px;
+ background:#171c36;color:#55e7ff;font-weight:bold;font-size:15px;
+ cursor:pointer;margin:4px
+}
+button:hover{background:#282050}
+#board{
+ display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+ width:min(92vw,390px);margin:18px auto;padding:9px;
+ background:#11162a;border:2px solid #55e7ff;border-radius:13px
+}
+.tile{
+ aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+ border-radius:8px;background:#202641;color:#aab2d0;
+ font-size:clamp(21px,6vw,34px);font-weight:bold
+}
+.v2{background:#243e59;color:#fff}
+.v4{background:#245c76;color:#fff}
+.v8{background:#176e83;color:#fff}
+.v16{background:#3758a0;color:#fff}
+.v32{background:#5c43aa;color:#fff}
+.v64{background:#873bb4;color:#fff}
+.v128{background:#b83e91;color:#fff;font-size:clamp(17px,5vw,28px)}
+.v256{background:#d54d77;color:#fff;font-size:clamp(17px,5vw,28px)}
+.v512{background:#e27b42;color:#fff;font-size:clamp(17px,5vw,28px)}
+.v1024,.v2048{background:#f4c542;color:#16152a;font-size:clamp(15px,4.5vw,25px)}
+#score{color:#55e7ff;font-size:23px;font-weight:bold}
+.hint{font-size:14px;line-height:1.6}
+a{color:#55e7ff}
+</style>
+</head>
+<body>
+<h1>🎮 NEON 2048</h1>
+<p>Merge the numbers and reach 2048!</p>
+
+<div class="panel">
+ <button id="musicBtn">🎵 Music: OFF</button>
+ <button onclick="newGame()">↻ New Game</button>
+ <div id="score">Score: 0</div>
+ <div id="board" aria-label="2048 game board"></div>
+ <p class="hint">Use arrow keys, WASD, or swipe to move tiles.<br>
+ Merge matching numbers to make bigger numbers!</p>
+ <p id="message">Good luck!</p>
+ <p><a href="index.html">← Back to GAMEVERSE</a></p>
+</div>
+
+<script>
+const boardEl=document.getElementById('board');
+const scoreEl=document.getElementById('score');
+const messageEl=document.getElementById('message');
+const musicBtn=document.getElementById('musicBtn');
+
+let board=[],score=0,won=false,over=false;
+let audio=null,musicOn=false,musicTimer=null,musicStep=0;
+let lastMerge=0;
+
+function setupAudio(){
+ if(!audio){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(AC) audio=new AC();
+ }
+ return audio;
+}
+
+function tone(freq,duration,volume=0.04,type='sine',delay=0){
+ const a=setupAudio();
+ if(!a)return;
+ if(a.state==='suspended')a.resume();
+ const osc=a.createOscillator(),gain=a.createGain();
+ osc.type=type;
+ osc.frequency.setValueAtTime(freq,a.currentTime+delay);
+ gain.gain.setValueAtTime(0.001,a.currentTime+delay);
+ gain.gain.exponentialRampToValueAtTime(volume,a.currentTime+delay+0.02);
+ gain.gain.exponentialRampToValueAtTime(0.001,a.currentTime+delay+duration);
+ osc.connect(gain);gain.connect(a.destination);
+ osc.start(a.currentTime+delay);
+ osc.stop(a.currentTime+delay+duration+0.03);
+}
+
+function mergeSound(value){
+ const now=Date.now();
+ if(now-lastMerge<75)return;
+ lastMerge=now;
+ const level=Math.min(Math.log2(value),11);
+ tone(300+level*48,0.17,0.055,'sine');
+ tone(450+level*65,0.22,0.035,'triangle',0.07);
+}
+
+function musicTick(){
+ if(!musicOn)return;
+ const notes=[261.63,329.63,392,329.63,293.66,349.23,440,349.23,
+              261.63,329.63,392,523.25,440,392,329.63,293.66];
+ const n=notes[musicStep%notes.length];
+ tone(n,0.32,0.018,'triangle');
+ if(musicStep%4===0)tone(n/2,0.42,0.012,'sine');
+ musicStep++;
+}
+
+async function toggleMusic(){
+ const a=setupAudio();
+ if(!a){messageEl.textContent='Audio is not supported in this browser.';return}
+ if(a.state==='suspended')await a.resume();
+ musicOn=!musicOn;
+ if(musicOn){
+  musicTick();
+  musicTimer=setInterval(musicTick,360);
+  musicBtn.textContent='🎵 Music: ON';
+ }else{
+  clearInterval(musicTimer);
+  musicTimer=null;
+  musicBtn.textContent='🔇 Music: OFF';
+ }
+}
+musicBtn.addEventListener('click',toggleMusic);
+
+function newGame(){
+ board=Array(16).fill(0);score=0;won=false;over=false;
+ addTile();addTile();messageEl.textContent='Good luck!';
+ render();
+}
+function addTile(){
+ const empty=[];
+ board.forEach((v,i)=>{if(!v)empty.push(i)});
+ if(empty.length){
+  const i=empty[Math.floor(Math.random()*empty.length)];
+  board[i]=Math.random()<0.9?2:4;
+ }
+}
+function render(){
+ boardEl.innerHTML='';
+ board.forEach(v=>{
+  const cell=document.createElement('div');
+  cell.className='tile'+(v?' v'+v:'');
+  cell.textContent=v||'';
+  boardEl.appendChild(cell);
+ });
+ scoreEl.textContent='Score: '+score;
+}
+function slideLine(line){
+ const vals=line.filter(v=>v!==0);
+ const result=[];
+ for(let i=0;i<vals.length;i++){
+  if(vals[i]===vals[i+1]){
+   const merged=vals[i]*2;
+   result.push(merged);score+=merged;mergeSound(merged);i++;
+   if(merged===2048&&!won){
+    won=true;messageEl.textContent='🎉 You reached 2048! Keep playing!';
+   }
+  }else result.push(vals[i]);
+ }
+ while(result.length<4)result.push(0);
+ return result;
+}
+function move(dir){
+ if(over)return;
+ const old=board.slice();
+ for(let n=0;n<4;n++){
+  let ids=[];
+  for(let k=0;k<4;k++){
+   let r,c;
+   if(dir==='left'){r=n;c=k}
+   if(dir==='right'){r=n;c=3-k}
+   if(dir==='up'){r=k;c=n}
+   if(dir==='down'){r=3-k;c=n}
+   ids.push(r*4+c);
+  }
+  const line=ids.map(i=>board[i]);
+  const result=slideLine(line);
+  ids.forEach((id,k)=>board[id]=result[k]);
+ }
+ if(board.every((v,i)=>v===old[i]))return;
+ addTile();
+ render();
+ if(!canMove()){
+  over=true;messageEl.textContent='Game over! Press New Game to try again.';
+ }
+}
+function canMove(){
+ if(board.includes(0))return true;
+ for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+  const i=r*4+c;
+  if(c<3&&board[i]===board[i+1])return true;
+  if(r<3&&board[i]===board[i+4])return true;
+ }
+ return false;
+}
+document.addEventListener('keydown',e=>{
+ const keys={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down',
+             a:'left',d:'right',w:'up',s:'down'};
+ const dir=keys[e.key]||keys[e.key.toLowerCase()];
+ if(dir){e.preventDefault();move(dir)}
+});
+let touchX=0,touchY=0;
+boardEl.addEventListener('touchstart',e=>{
+ touchX=e.changedTouches[0].clientX;
+ touchY=e.changedTouches[0].clientY;
+},{passive:true});
+boardEl.addEventListener('touchend',e=>{
+ const dx=e.changedTouches[0].clientX-touchX;
+ const dy=e.changedTouches[0].clientY-touchY;
+ if(Math.max(Math.abs(dx),Math.abs(dy))<25)return;
+ move(Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up'));
+},{passive:true});
+
+newGame();
+</script>
+</body>
+</html>
